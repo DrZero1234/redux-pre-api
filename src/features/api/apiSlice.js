@@ -1,3 +1,5 @@
+// export NODE_OPTIONS=--openssl-legacy-provider
+
 // Import the RTK Query methods from the React-specific entry point
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react'
 
@@ -16,10 +18,16 @@ export const apiSlice = createApi({
       // The URL for the request is '/fakeApi/posts'
       query: () => '/posts', // OR {url: '/posts', method: 'POST', body: newPost}
       // Listing a set of tags describing the data in that query
-      providesTags: ["Post"],
+      providesTags:(result = [], error,arg) => [
+        // Provides a general 'Post' tag for the whole list, as well as a specific {type: 'Post', id} tag for each received post object
+        "Post",
+        ...result.map(({id}) => ({type: "Post", id}))
+      ]
     }),
     getPost: builder.query({
-        query: (postId) => `/posts/${postId}`
+        query: (postId) => `/posts/${postId}`,
+        // provides a specific {type: 'Post', id} object for the individual post object
+        providesTags: (result,error,arg) => [{type: "Post", id: arg}],
     }),
     addNewPost: builder.mutation({
       query: initialPost => ({
@@ -28,6 +36,7 @@ export const apiSlice = createApi({
         body: initialPost
       }),
       // Listing a set of tags that are invalidated every time that mutation runs
+      // Invalidates the general 'Post' tag, to refetch the whole list
       invalidatesTags: ["Post"]
     }),
     editPost: builder.mutation({
@@ -36,7 +45,8 @@ export const apiSlice = createApi({
         method: "PATCH",
         body: post,
       }),
-      invalidatesTags: ["Post"]
+      //  invalidates the specific {type: 'Post', id} tag. This will force a refetch of both the individual post from getPost, as well as the entire list of posts from getPosts, because they both provide a tag that matches that {type, id} value.
+      invalidatesTags: (result, error, arg) => [{type: "Post", id: arg.id}],
     })
   })
 })
